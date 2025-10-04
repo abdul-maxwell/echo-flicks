@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { X, Play, Pause, Volume2, VolumeX, Maximize, SkipForward, SkipBack } from "lucide-react";
+import { X, Play, Pause, Volume2, VolumeX, Maximize, Minimize } from "lucide-react";
 import { Button } from "./ui/button";
 import { Slider } from "./ui/slider";
 import { saveWatchProgress } from "@/lib/storage";
+import { toast } from "sonner";
 
 interface VideoPlayerProps {
   title: string;
@@ -29,11 +30,58 @@ const VideoPlayer = ({
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [showControls, setShowControls] = useState(true);
-  const videoRef = useRef<HTMLIFrameElement>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const controlsTimeoutRef = useRef<NodeJS.Timeout>();
 
+  // Sync video element with playing state
+  useEffect(() => {
+    if (videoRef.current) {
+      if (playing) {
+        videoRef.current.play().catch(() => {
+          toast.error("Failed to play video");
+          setPlaying(false);
+        });
+      } else {
+        videoRef.current.pause();
+      }
+    }
+  }, [playing]);
+
+  // Sync video element with volume
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.volume = volume;
+      videoRef.current.muted = muted;
+    }
+  }, [volume, muted]);
+
+  // Update time and duration
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const updateTime = () => setCurrentTime(video.currentTime);
+    const updateDuration = () => setDuration(video.duration);
+    const handleEnded = () => setPlaying(false);
+
+    video.addEventListener("timeupdate", updateTime);
+    video.addEventListener("loadedmetadata", updateDuration);
+    video.addEventListener("ended", handleEnded);
+
+    return () => {
+      video.removeEventListener("timeupdate", updateTime);
+      video.removeEventListener("loadedmetadata", updateDuration);
+      video.removeEventListener("ended", handleEnded);
+    };
+  }, []);
+
+  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement) return;
+      
       switch (e.key) {
         case " ":
         case "k":
@@ -44,21 +92,43 @@ const VideoPlayer = ({
           setMuted((prev) => !prev);
           break;
         case "f":
-          if (document.fullscreenElement) {
-            document.exitFullscreen();
-          } else {
-            document.documentElement.requestFullscreen();
-          }
+          handleFullscreen();
           break;
         case "Escape":
-          onClose();
+          if (isFullscreen) {
+            handleFullscreen();
+          } else {
+            onClose();
+          }
+          break;
+        case "ArrowLeft":
+          e.preventDefault();
+          if (videoRef.current) {
+            videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 10);
+          }
+          break;
+        case "ArrowRight":
+          e.preventDefault();
+          if (videoRef.current) {
+            videoRef.current.currentTime = Math.min(duration, videoRef.current.currentTime + 10);
+          }
           break;
       }
     };
 
     window.addEventListener("keydown", handleKeyPress);
     return () => window.removeEventListener("keydown", handleKeyPress);
-  }, [onClose]);
+  }, [onClose, isFullscreen, duration]);
+
+  // Fullscreen change listener
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
 
   const handleMouseMove = () => {
     setShowControls(true);
@@ -74,7 +144,24 @@ const VideoPlayer = ({
     if (document.fullscreenElement) {
       document.exitFullscreen();
     } else {
-      document.documentElement.requestFullscreen();
+      containerRef.current?.requestFullscreen();
+    }
+  };
+
+  const handleSeek = (value: number[]) => {
+    const newTime = value[0];
+    if (videoRef.current) {
+      videoRef.current.currentTime = newTime;
+      setCurrentTime(newTime);
+    }
+  };
+
+  const skip = (seconds: number) => {
+    if (videoRef.current) {
+      videoRef.current.currentTime = Math.max(
+        0,
+        Math.min(duration, videoRef.current.currentTime + seconds)
+      );
     }
   };
 
@@ -110,24 +197,28 @@ const VideoPlayer = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-background flex flex-col"
+      ref={containerRef}
+      className="fixed inset-0 z-50 bg-black flex flex-col"
       onMouseMove={handleMouseMove}
     >
       {/* Video Container */}
       <div className="flex-1 relative bg-black flex items-center justify-center">
-        {/* YouTube Embed (for demo purposes - showing trailer) */}
-        <iframe
+        {/* HTML5 Video Player */}
+        <video
           ref={videoRef}
-          className="w-full h-full"
-          src={`https://www.youtube.com/embed/${videoId}?autoplay=1&controls=0&modestbranding=1&rel=0`}
-          title={title}
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-        />
+          className="w-full h-full object-contain"
+          poster={`https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`}
+          onClick={() => setPlaying(!playing)}
+        >
+          {/* IMPORTANT: Replace this YouTube trailer URL with actual video source */}
+          <source src={`https://www.youtube.com/watch?v=${videoId}`} type="video/mp4" />
+          Your browser does not support the video tag.
+        </video>
 
-        {/* Note: In production, you would integrate with actual video sources */}
-        <div className="absolute top-4 left-4 bg-primary/90 text-primary-foreground px-3 py-1 rounded text-sm">
-          Demo: Playing Trailer
+        {/* Demo Notice */}
+        <div className="absolute top-4 left-4 bg-destructive/90 text-destructive-foreground px-4 py-2 rounded-lg text-sm backdrop-blur-sm">
+          <p className="font-semibold">⚠️ Demo Mode: Video source needed</p>
+          <p className="text-xs mt-1">Replace video src with your streaming URL</p>
         </div>
 
         {/* Controls Overlay */}
@@ -153,15 +244,15 @@ const VideoPlayer = ({
           <div className="absolute bottom-0 left-0 right-0 p-4 space-y-4">
             {/* Progress Bar */}
             <div className="flex items-center gap-2">
-              <span className="text-sm tabular-nums">{formatTime(currentTime)}</span>
+              <span className="text-sm tabular-nums min-w-[3rem]">{formatTime(currentTime)}</span>
               <Slider
                 value={[currentTime]}
                 max={duration || 100}
-                step={1}
+                step={0.1}
                 className="flex-1"
-                onValueChange={(value) => setCurrentTime(value[0])}
+                onValueChange={handleSeek}
               />
-              <span className="text-sm tabular-nums">{formatTime(duration)}</span>
+              <span className="text-sm tabular-nums min-w-[3rem]">{formatTime(duration)}</span>
             </div>
 
             {/* Controls */}
@@ -170,7 +261,10 @@ const VideoPlayer = ({
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => setPlaying(!playing)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPlaying(!playing);
+                  }}
                   className="hover:bg-white/20"
                 >
                   {playing ? <Pause className="h-6 w-6" /> : <Play className="h-6 w-6" />}
@@ -179,17 +273,27 @@ const VideoPlayer = ({
                 <Button
                   variant="ghost"
                   size="icon"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    skip(-10);
+                  }}
                   className="hover:bg-white/20"
+                  title="Rewind 10s"
                 >
-                  <SkipBack className="h-5 w-5" />
+                  <span className="text-xs font-bold">-10</span>
                 </Button>
 
                 <Button
                   variant="ghost"
                   size="icon"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    skip(10);
+                  }}
                   className="hover:bg-white/20"
+                  title="Forward 10s"
                 >
-                  <SkipForward className="h-5 w-5" />
+                  <span className="text-xs font-bold">+10</span>
                 </Button>
 
                 <div className="flex items-center gap-2 ml-2">
@@ -221,10 +325,18 @@ const VideoPlayer = ({
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={handleFullscreen}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleFullscreen();
+                }}
                 className="hover:bg-white/20"
+                title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
               >
-                <Maximize className="h-5 w-5" />
+                {isFullscreen ? (
+                  <Minimize className="h-5 w-5" />
+                ) : (
+                  <Maximize className="h-5 w-5" />
+                )}
               </Button>
             </div>
           </div>
