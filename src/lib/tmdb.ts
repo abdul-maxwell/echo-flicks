@@ -1,5 +1,5 @@
 // TMDB API Configuration and helper functions
-const TMDB_API_KEY = "YOUR_TMDB_API_KEY"; // Users will need to add their own key
+const TMDB_API_KEY = "f2d0082d99bd369b5812c337c7c39069"; // Users will need to add their own key
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const TMDB_IMAGE_BASE_URL = "https://image.tmdb.org/t/p";
 
