@@ -95,7 +95,7 @@ const Navbar = () => {
               <Film className="h-6 w-6 text-primary-foreground" />
             </div>
             <span className="text-xl font-bold tracking-tight group-hover:text-primary transition-colors">
-              StreamFlix
+              Maxflix
             </span>
           </Link>
 

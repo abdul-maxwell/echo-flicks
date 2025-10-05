@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Play, Info, Star, Volume2, VolumeX } from "lucide-react";
+import { Play, Info, Star } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { Movie, MovieDetails, getImageUrl, TMDB_IMAGE_SIZES, tmdbApi } from "@/lib/tmdb";
@@ -12,7 +12,6 @@ interface HeroProps {
 
 const Hero = ({ fetchUrl, mediaType = "movie" }: HeroProps) => {
   const [showTrailer, setShowTrailer] = useState(false);
-  const [isMuted, setIsMuted] = useState(true);
   const [trailerKey, setTrailerKey] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -68,19 +67,6 @@ const Hero = ({ fetchUrl, mediaType = "movie" }: HeroProps) => {
     }
   }, [detailedData, isMobile]);
 
-  // Load mute preference
-  useEffect(() => {
-    const savedMute = localStorage.getItem("hero-muted");
-    if (savedMute !== null) {
-      setIsMuted(savedMute === "true");
-    }
-  }, []);
-
-  const handleToggleMute = () => {
-    const newMuted = !isMuted;
-    setIsMuted(newMuted);
-    localStorage.setItem("hero-muted", String(newMuted));
-  };
 
   if (isLoading || !heroItem) {
     return (
@@ -110,7 +96,7 @@ const Hero = ({ fetchUrl, mediaType = "movie" }: HeroProps) => {
       {showTrailer && trailerKey && (
         <div className="absolute inset-0 animate-fade-in">
           <iframe
-            src={`https://www.youtube.com/embed/${trailerKey}?autoplay=1&mute=${isMuted ? 1 : 0}&controls=0&modestbranding=1&rel=0&loop=1&playlist=${trailerKey}&enablejsapi=1`}
+            src={`https://www.youtube.com/embed/${trailerKey}?autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&loop=1&playlist=${trailerKey}&enablejsapi=1`}
             className="w-full h-full object-cover scale-125"
             style={{ border: 0, pointerEvents: "none" }}
             allow="autoplay; encrypted-media"
@@ -123,32 +109,17 @@ const Hero = ({ fetchUrl, mediaType = "movie" }: HeroProps) => {
       <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent z-10" />
       <div className="absolute inset-0 bg-gradient-to-r from-background/90 via-background/70 to-transparent z-10" />
 
-      {/* Mute/Unmute Button */}
-      {showTrailer && trailerKey && (
-        <button
-          onClick={handleToggleMute}
-          className="absolute bottom-32 right-8 z-20 p-3 rounded-full bg-background/20 hover:bg-background/40 backdrop-blur-sm transition-all border border-border/50 animate-fade-in"
-          aria-label={isMuted ? "Unmute" : "Mute"}
-        >
-          {isMuted ? (
-            <VolumeX className="h-5 w-5 text-foreground" />
-          ) : (
-            <Volume2 className="h-5 w-5 text-foreground" />
-          )}
-        </button>
-      )}
-
       {/* Content */}
       <div className="relative h-full flex items-end md:items-center px-4 md:px-8 lg:px-16 pb-20 md:pb-32 z-10">
         <div className="max-w-2xl animate-slide-up">
-          <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-4 leading-tight">
+          <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-3 leading-tight">
             {title}
           </h1>
           
-          <div className="flex items-center gap-4 mb-6 text-sm md:text-base">
+          <div className="flex items-center gap-4 mb-4 text-sm">
             {heroItem.vote_average > 0 && (
               <div className="flex items-center gap-2">
-                <Star className="h-5 w-5 text-yellow-400 fill-current" />
+                <Star className="h-4 w-4 text-yellow-400 fill-current" />
                 <span className="font-semibold">{heroItem.vote_average.toFixed(1)}</span>
               </div>
             )}
@@ -163,7 +134,7 @@ const Hero = ({ fetchUrl, mediaType = "movie" }: HeroProps) => {
           </div>
 
           {heroItem.overview && (
-            <p className="text-base md:text-lg mb-8 line-clamp-3 text-foreground/90">
+            <p className="text-sm md:text-base mb-6 line-clamp-3 text-foreground/90">
               {heroItem.overview}
             </p>
           )}
